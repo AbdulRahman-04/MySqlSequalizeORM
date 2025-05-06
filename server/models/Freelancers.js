@@ -1,6 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../utils/dbConnect.js";
-import bcrypt from "bcrypt";
 
 class Freelancer extends Model {}
 
@@ -11,11 +10,11 @@ Freelancer.init(
       autoIncrement: true,
       primaryKey: true,
     },
-    name: {
+    flname: {
       type: DataTypes.STRING(50),
       allowNull: false,
     },
-    email: {
+    flemail: {
       type: DataTypes.STRING(100),
       allowNull: false,
       unique: true,
@@ -32,20 +31,19 @@ Freelancer.init(
       type: DataTypes.STRING(100),
       allowNull: true,
     },
-    verified: {
+    experience: {
+      type: DataTypes.STRING(50),  // Changed to string to store "2 years"
+      allowNull: true,
+    },
+    userVerifyToken: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: {},
+    },
+    userVerified: {
       type: DataTypes.JSON,
       allowNull: true,
       defaultValue: { email: false, phone: false },
-    },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: sequelize.literal("CURRENT_TIMESTAMP"),
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: sequelize.literal("CURRENT_TIMESTAMP"),
     },
   },
   {
@@ -55,10 +53,5 @@ Freelancer.init(
     timestamps: true,
   }
 );
-
-// ✅ Hashing password before storing
-Freelancer.beforeCreate(async (freelancer) => {
-  freelancer.password = await bcrypt.hash(freelancer.password, 10);
-});
 
 export default Freelancer;

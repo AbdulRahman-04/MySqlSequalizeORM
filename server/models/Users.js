@@ -1,6 +1,5 @@
 import { DataTypes, Model } from "sequelize";
 import sequelize from "../utils/dbConnect.js";
-import bcrypt from "bcrypt";
 
 class User extends Model {}
 
@@ -46,16 +45,6 @@ User.init(
       allowNull: true,
       defaultValue: { email: false, phone: false },
     },
-    createdAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: sequelize.literal("CURRENT_TIMESTAMP"),
-    },
-    updatedAt: {
-      type: DataTypes.DATE,
-      allowNull: false,
-      defaultValue: sequelize.literal("CURRENT_TIMESTAMP"),
-    },
   },
   {
     sequelize,
@@ -65,9 +54,6 @@ User.init(
   }
 );
 
-// ✅ Hashing password before storing
-User.beforeCreate(async (user) => {
-  user.password = await bcrypt.hash(user.password, 10);
-});
+// ⚠️ NO beforeCreate hook here—hashing done in route
 
 export default User;

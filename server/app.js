@@ -30,14 +30,14 @@ app.use(cors({ origin: ["http://127.0.0.1:5173", "http://localhost:5173"] }));
 app.use(express.json());
 
 // Rate Limiting
-// let limiter = ratelimit({
-//   windowMs: 5 * 60 * 100, // 5 minutes
-//   limit: 50,
-//   standardHeaders: true,
-//   legacyHeaders: false,
-//   message: "Too many requests! Wait before sending again.",
-//   statusCode: 429,
-// });
+let limiter = ratelimit({
+  windowMs: 5 * 60 * 100, // 5 minutes
+  limit: 50,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: "Too many requests! Wait before sending again.",
+  statusCode: 429,
+});
 
 app.get("/", (req, res) => {
   try {
@@ -64,11 +64,11 @@ app.use("/api/public", userpublicRouter);
 app.use("/api/public", freelancerpublicRouter);
 
 // Apply rate limiting
-// app.use(limiter);
+app.use(limiter);
 
 
 // Private APIs
-app.use("/api/users", userRouter);
+app.use("/api/users", authMiddleware, userRouter);
 app.use("/api/freelancers", authMiddleware ,freelancerRouter);
 
 app.listen(PORT, () => {
