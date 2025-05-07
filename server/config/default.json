@@ -1,12 +1,15 @@
 {
     "PORT": 8080,
     "DB": {
-        "database": "webxpertz",
-        "username": "syed",
-        "password": "1234",
-        "host": "localhost",
-        "dialect": "mysql"
-    },
+      "database": "webxpertz",
+      "username": "rahman",
+      "password": "rahman123",
+      "host": "127.0.0.1",  
+      "dialect": "mysql",
+      "port": 3306
+    
+  }
+  ,
     "JWT_KEY": "rahman123",
     "EMAIL": "abdulrahman.81869@gmail.com",
     "PASS": "nvoa aemk oktc dxrg",

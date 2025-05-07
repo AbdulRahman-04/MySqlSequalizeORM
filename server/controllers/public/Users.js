@@ -1,155 +1,153 @@
 import express from "express";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";                // 🔄 Switched to bcryptjs for reliability
 import config from "config";
 import jwt from "jsonwebtoken";
 import sendEmail from "../../utils/sendEmail.js";
-import db from "../../models/index.js";    // pure registry import karo
-const { User } = db;                      // usme se User nikaalo
+import db from "../../models/index.js";
 
+const { User, sequelize } = db;
 const router = express.Router();
 const URL = config.get("URL");
 const KEY = config.get("JWT_KEY");
 
+// Ensure DB and tables exist
+async function initializeDatabase() {
+  await sequelize.sync({ alter: true });
+}
 
-// POST /usersignup - User Signup endpoint
+// User Signup API
 router.post("/usersignup", async (req, res) => {
   try {
-    const { username, email, password, age, phone, serviceLookingFor } = req.body;
+    const { username, email, password, age, phone } = req.body;
 
-    // Check if user already exists
+    // 🔍 Check if user already exists
     const userExists = await User.findOne({ where: { email } });
-    if (userExists) {
-      return res.status(200).json({ msg: "The email already exists 🙌" });
-    }
+    if (userExists) return res.status(200).json({ msg: "User already exists! Please login." });
 
+    // 🔒 Hash password
     const hashPass = await bcrypt.hash(password, 10);
+
+    // 🔄 Generate verification tokens
     const emailToken = Math.random().toString(36).substring(2);
     const phoneToken = Math.random().toString(36).substring(2);
 
-    const newUser = {
+    // 🗃 Create user without JSON.stringify()
+    const newUser = await User.create({
       username,
       email,
       password: hashPass,
-      age,
       phone,
-      serviceLookingFor,
-      userVerifyToken: {
-        email: emailToken,
-        phone: phoneToken,
-      }
-      // Assume that userVerified field is defined in the model with default value { email: false, phone: false }
-    };
+      age,
+      userVerifyToken: { email: emailToken, phone: phoneToken }, 
+      userVerified: { email: false, phone: false } 
+    });
 
-    await User.create(newUser);
-
+    // 📩 Send verification email
     const emailData = {
       from: "Team WebXperts",
       to: email,
       subject: "Email Verification",
-      html: `<a href="${URL}/api/public/emailverify/${emailToken}">Verify Email</a><br>
-             <p>If the link doesn't work, copy and paste this URL:</p>
-             <p>${URL}/api/public/emailverify/${emailToken}</p>`
+      html: `<a href="${URL}/api/public/emailverify/${emailToken}">Verify Email</a>`,
     };
 
     await sendEmail(emailData);
-    console.log("Email verification link:", `${URL}/api/public/emailverify/${emailToken}`);
 
-    return res.status(201).json({ msg: "Signup successful! Please check your email for verification." });
+    res.status(200).json({ msg: "Signup successful! Verify your email via the link sent. ✅" });
   } catch (error) {
-    console.error("Error in signup:", error);
-    return res.status(500).json({ msg: error.toString() });
+    console.error("❌ Error in signup:", error);
+    res.status(500).json({ msg: "Database error, please try again!" });
   }
 });
 
-// GET /emailverify/:token - Email verification endpoint
+// Email Verify API
 router.get("/emailverify/:token", async (req, res) => {
   try {
     const token = req.params.token;
-    console.log("Email verify endpoint hit with token:", token);
 
-    // Using JSON_EXTRACT to query the JSON field for email verification token
+    // 🔍 Find user with the matching email token
     const user = await User.findOne({
-      where: User.sequelize.where(
-        User.sequelize.fn("JSON_EXTRACT", User.sequelize.col("userVerifyToken"), "$.email"),
-        token
-      )
+      where: { userVerifyToken: { email: token } }
     });
 
     if (!user) {
-      return res.status(400).json({ msg: "Invalid token" });
+      return res.status(400).json({ msg: "Invalid token ❌" });
     }
 
-    if (user.userVerified && user.userVerified.email === true) {
-      return res.status(200).json({ msg: "Email already verified!" });
+    if (user.userVerified.email) {
+      return res.status(200).json({ msg: "Email already verified 🙌" });
     }
 
-    // Set email verified and clear email token
+    // 🔄 Update verification status & remove token
     user.userVerified.email = true;
     user.userVerifyToken.email = null;
+
     await user.save();
 
-    return res.status(200).json({ msg: "Email verified successfully ✅" });
+    return res.status(200).json({ msg: "Email verified successfully! ✅" });
   } catch (error) {
-    console.error("Error in email verify endpoint:", error);
-    return res.status(500).json({ msg: error.toString() });
+    console.error("❌ Error in email verification:", error);
+    return res.status(500).json({ msg: "Internal server error, please try again!" });
   }
 });
 
-
-
+// User Signin API
 router.post("/usersignin", async (req, res) => {
   try {
-    let { email, password } = req.body;
+    const { email, password } = req.body;
 
-    let checkUser = await User.findOne({ where: { email } });
-    if (!checkUser) {
-      return res.status(200).json({ msg: "Invalid email" });
-    }
+    // 🔍 Find user by email in MySQL
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(400).json({ msg: "Email not found ❌" });
 
-    let checkPass = await bcrypt.compare(password, checkUser.password);
-    if (!checkPass) {
-      return res.status(200).json({ msg: "Invalid password" });
-    }
+    // 🔍 Log password details for debugging
+    console.log("🔍 Input Password:", password);
+    console.log("🔍 Stored Hashed Password:", user.password);
 
-    let token = jwt.sign({ id: checkUser.id }, KEY, { expiresIn: "90d" });
-    let id = checkUser.id;
+    // 🔒 Check password properly
+    const checkPass = await bcrypt.compare(password.trim(), user.password?.trim() ?? "");
+    console.log("🔍 Password Match:", checkPass);
 
-    res.status(200).json({ msg: "User logged in successfully", token, email, id });
+    if (!checkPass) return res.status(401).json({ msg: "Invalid password ❌" });
+
+    // 🔥 Generate JWT token
+    const token = jwt.sign({ id: user.id }, JWT_KEY, { expiresIn: "2d" });
+
+    res.status(200).json({ msg: "User logged in successfully! ✅", token });
   } catch (error) {
-    console.log(error);
-    res.status(200).json({ msg: error });
+    console.error("❌ Error in signin:", error);
+    res.status(500).json({ msg: "Internal server error, please try again!" });
   }
 });
 
+// Reset Password API
 router.post("/reset-password", async (req, res) => {
   try {
-    let { email } = req.body;
-
-    let user = await User.findOne({ where: { email } });
-    if (!user) {
-      return res.status(200).json({ msg: "User not found!" });
+    const email = req.body.email?.trim();
+    if (!email) {
+      return res.status(400).json({ msg: "Email is required!" });
     }
 
-    let newPassword = Math.random().toString(36).slice(-8);
-    let hashedPass = await bcrypt.hash(newPassword, 10);
+    const user = await User.findOne({ where: { email } });
+    if (!user) return res.status(400).json({ msg: "User not found!" });
+
+    const newPassword = Math.random().toString(36).slice(-8);
+    const hashedPass = await bcrypt.hash(newPassword, 10);
 
     user.password = hashedPass;
     await user.save();
 
-    let emailData = {
+    const emailData = {
       from: "Team WebXperts",
       to: email,
       subject: "Password Reset",
-      html: `<p>Your new password is: <b>${newPassword}</b></p>
-             <p>Please change it after logging in.</p>`,
+      html: `<p>Your new password is: <b>${newPassword}</b></p>`,
     };
 
-    sendEmail(emailData);
-
+    await sendEmail(emailData);
     return res.status(200).json({ msg: "Password reset successful! Check your email for the new password." });
   } catch (error) {
-    console.log(error);
-    res.status(500).json({ msg: "Something went wrong!" });
+    console.error("❌ Error in reset password:", error);
+    return res.status(500).json({ msg: "Something went wrong!" });
   }
 });
 
