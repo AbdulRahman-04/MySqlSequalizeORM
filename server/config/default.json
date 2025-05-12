@@ -11,10 +11,10 @@
   }
   ,
     "JWT_KEY": "rahman123",
-    "EMAIL": "abdulrahman.81869@gmail.com",
-    "PASS": "nvoa aemk oktc dxrg",
-    "SID": "ACe7bf350cd9babcd1aba0601113a347fd",
-    "TOKEN": "36c63c353bf80d482d5387ca9596540b",
-    "PHONE": "+12185041801",
+    "EMAIL": "your emailId",
+    "PASS": "your google app password",
+    "SID": "your sid from twilio",
+    "TOKEN": "your token from twilio",
+    "PHONE": "+your phone from twilio",
     "URL": "http://localhost:8080"
 }
